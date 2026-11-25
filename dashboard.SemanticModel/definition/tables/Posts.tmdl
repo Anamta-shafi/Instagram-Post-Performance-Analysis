@@ -1,0 +1,255 @@
+table Posts
+	lineageTag: 8f2c1d4e-3a5b-4c6d-9e7f-1a2b3c4d5e6f
+
+	measure 'Total Posts' = COUNTROWS('Posts')
+		formatString: #,0
+		lineageTag: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d
+
+	measure 'Total Impressions' = SUM(Posts[impressions])
+		formatString: #,0
+		lineageTag: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+
+	measure 'Total Reach' = SUM(Posts[reach])
+		formatString: #,0
+		lineageTag: 3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f
+
+	measure 'Total Interactions' = SUMX(Posts, Posts[likes] + Posts[comments] + Posts[shares] + Posts[saves])
+		formatString: #,0
+		lineageTag: 4d5e6f7a-8b9c-4d4e-9f5a-6b7c8d9e0f1a
+
+	measure 'Avg Engagement Rate' = AVERAGE(Posts[engagement_rate])
+		formatString: 0.00%
+		lineageTag: 5e6f7a8b-9c0d-4e5f-8a6b-7c8d9e0f1a2b
+
+	measure 'Avg Reach per Post' = DIVIDE([Total Reach], [Total Posts])
+		formatString: #,0
+		lineageTag: 6f7a8b9c-0d1e-4f6a-9b7c-8d9e0f1a2b3c
+
+	measure 'Followers Gained' = SUM(Posts[followers_gained])
+		formatString: #,0
+		lineageTag: 7a8b9c0d-1e2f-4a7b-8c8d-9e0f1a2b3c4d
+
+	measure 'Avg Followers per Post' = DIVIDE([Followers Gained], [Total Posts])
+		formatString: 0.0
+		lineageTag: 8b9c0d1e-2f3a-4b8c-9d9e-0f1a2b3c4d5e
+
+	measure 'Viral Posts' = CALCULATE([Total Posts], Posts[performance_bucket_label] = "viral")
+		formatString: #,0
+		lineageTag: 9c0d1e2f-3a4b-4c9d-8e0f-1a2b3c4d5e6f
+
+	measure 'Avg Saves' = AVERAGE(Posts[saves])
+		formatString: 0.0
+		lineageTag: 0d1e2f3a-4b5c-4d0e-9f1a-2b3c4d5e6f7a
+
+	measure 'Avg Shares' = AVERAGE(Posts[shares])
+		formatString: 0.0
+		lineageTag: 1e2f3a4b-5c6d-4e1f-8a2b-3c4d5e6f7a8b
+
+	measure 'Avg Likes' = AVERAGE(Posts[likes])
+		formatString: 0.0
+		lineageTag: 2f3a4b5c-6d7e-4f2a-9b3c-4d5e6f7a8b9c
+
+	measure 'Avg Comments' = AVERAGE(Posts[comments])
+		formatString: 0.0
+		lineageTag: 3a4b5c6d-7e8f-4a3b-8c4d-5e6f7a8b9c0d
+
+	measure 'Avg Hashtags' = AVERAGE(Posts[hashtags_count])
+		formatString: 0.0
+		lineageTag: 4b5c6d7e-8f9a-4b4c-9d5e-6f7a8b9c0d1e
+
+	measure 'Avg Caption Length' = AVERAGE(Posts[caption_length])
+		formatString: 0.0
+		lineageTag: 5c6d7e8f-9a0b-4c5d-8e6f-7a8b9c0d1e2f
+
+	measure 'CTA Post Share' = DIVIDE(CALCULATE([Total Posts], Posts[has_call_to_action] = TRUE()), [Total Posts])
+		formatString: 0.0%
+		lineageTag: 6d7e8f9a-0b1c-4d6e-9f7a-8b9c0d1e2f3a
+
+	measure 'Engagement per 1K' = [Avg Engagement Rate] * 1000
+		formatString: 0.0
+		lineageTag: 7e8f9a0b-1c2d-4e7f-8a8b-9c0d1e2f3a4b
+
+	column account_type
+		dataType: string
+		lineageTag: 8f9a0b1c-2d3e-4f8a-9b9c-0d1e2f3a4b5c
+		summarizeBy: none
+		sourceColumn: account_type
+
+	column follower_count
+		dataType: int64
+		formatString: #,0
+		lineageTag: 9a0b1c2d-3e4f-4a9b-8c0d-1e2f3a4b5c6d
+		summarizeBy: sum
+		sourceColumn: follower_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column media_type
+		dataType: string
+		lineageTag: 0b1c2d3e-4f5a-4b0c-9d1e-2f3a4b5c6d7e
+		summarizeBy: none
+		sourceColumn: media_type
+
+	column content_category
+		dataType: string
+		lineageTag: 1c2d3e4f-5a6b-4c1d-8e2f-3a4b5c6d7e8f
+		summarizeBy: none
+		sourceColumn: content_category
+
+	column traffic_source
+		dataType: string
+		lineageTag: 2d3e4f5a-6b7c-4d2e-9f3a-4b5c6d7e8f9a
+		summarizeBy: none
+		sourceColumn: traffic_source
+
+	column has_call_to_action
+		dataType: boolean
+		lineageTag: 3e4f5a6b-7c8d-4e3f-8a4b-5c6d7e8f9a0b
+		summarizeBy: none
+		sourceColumn: has_call_to_action
+
+	column post_datetime
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:mm:ss
+		lineageTag: 4f5a6b7c-8d9e-4f4a-9b5c-6d7e8f9a0b1c
+		summarizeBy: none
+		sourceColumn: post_datetime
+
+	column post_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 5a6b7c8d-9e0f-4a5b-8c6d-7e8f9a0b1c2d
+		summarizeBy: none
+		sourceColumn: post_date
+
+		variation Variation
+			isDefault
+			relationship: a54d33de-a8ae-4b28-96df-6200114a9ad4
+			defaultHierarchy: LocalDateTable_115d4535-d1c6-4ef1-ab05-389a437d6410.'Date Hierarchy'
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column post_month
+		dataType: dateTime
+		formatString: mmm yyyy
+		lineageTag: 6b7c8d9e-0f1a-4b6c-9d7e-8f9a0b1c2d3e
+		summarizeBy: none
+		sourceColumn: post_month
+
+		variation Variation
+			isDefault
+			relationship: 869cf6a5-9a4b-4882-a2bd-0651b8b9b602
+			defaultHierarchy: LocalDateTable_c156c1cb-85a6-41ff-b1bc-c97ea3ae093e.'Date Hierarchy'
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column post_hour
+		dataType: int64
+		formatString: 0
+		lineageTag: 7c8d9e0f-1a2b-4c7d-8e8f-9a0b1c2d3e4f
+		summarizeBy: sum
+		sourceColumn: post_hour
+
+		annotation SummarizationSetBy = Automatic
+
+	column day_of_week
+		dataType: string
+		lineageTag: 8d9e0f1a-2b3c-4d8e-9f9a-0b1c2d3e4f5a
+		summarizeBy: none
+		sourceColumn: day_of_week
+
+	column likes
+		dataType: int64
+		formatString: #,0
+		lineageTag: 9e0f1a2b-3c4d-4e9f-8a0b-1c2d3e4f5a6b
+		summarizeBy: sum
+		sourceColumn: likes
+
+	column comments
+		dataType: int64
+		formatString: #,0
+		lineageTag: 0f1a2b3c-4d5e-4f0a-9b1c-2d3e4f5a6b7c
+		summarizeBy: sum
+		sourceColumn: comments
+
+	column shares
+		dataType: int64
+		formatString: #,0
+		lineageTag: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8e
+		summarizeBy: sum
+		sourceColumn: shares
+
+	column saves
+		dataType: int64
+		formatString: #,0
+		lineageTag: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9f
+		summarizeBy: sum
+		sourceColumn: saves
+
+	column reach
+		dataType: int64
+		formatString: #,0
+		lineageTag: 3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0a
+		summarizeBy: sum
+		sourceColumn: reach
+
+	column impressions
+		dataType: int64
+		formatString: #,0
+		lineageTag: 4d5e6f7a-8b9c-4d4e-9f5a-6b7c8d9e0f1b
+		summarizeBy: sum
+		sourceColumn: impressions
+
+	column engagement_rate
+		dataType: double
+		formatString: 0.00%
+		lineageTag: 5e6f7a8b-9c0d-4e5f-8a6b-7c8d9e0f1a2c
+		summarizeBy: sum
+		sourceColumn: engagement_rate
+
+		annotation SummarizationSetBy = Automatic
+
+	column followers_gained
+		dataType: int64
+		formatString: #,0
+		lineageTag: 6f7a8b9c-0d1e-4f6a-9b7c-8d9e0f1a2b3d
+		summarizeBy: sum
+		sourceColumn: followers_gained
+
+	column caption_length
+		dataType: int64
+		formatString: #,0
+		lineageTag: 7a8b9c0d-1e2f-4a7b-8c8d-9e0f1a2b3c4e
+		summarizeBy: sum
+		sourceColumn: caption_length
+
+		annotation SummarizationSetBy = Automatic
+
+	column hashtags_count
+		dataType: int64
+		formatString: #,0
+		lineageTag: 8b9c0d1e-2f3a-4b8c-9d9e-0f1a2b3c4d5f
+		summarizeBy: sum
+		sourceColumn: hashtags_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column performance_bucket_label
+		dataType: string
+		lineageTag: 9c0d1e2f-3a4b-4c9d-8e0f-1a2b3c4d5e6a
+		summarizeBy: none
+		sourceColumn: performance_bucket_label
+
+	partition Posts = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents("C:\Users\anamt\OneDrive\Desktop\fdssss\Instagram_Analytics_cleaned.csv"), [Delimiter = ",", Columns = 21, Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers", {{"account_type", type text}, {"follower_count", Int64.Type}, {"media_type", type text}, {"content_category", type text}, {"traffic_source", type text}, {"has_call_to_action", type logical}, {"post_datetime", type datetime}, {"post_date", type date}, {"post_hour", Int64.Type}, {"day_of_week", type text}, {"likes", Int64.Type}, {"comments", Int64.Type}, {"shares", Int64.Type}, {"saves", Int64.Type}, {"reach", Int64.Type}, {"impressions", Int64.Type}, {"engagement_rate", type number}, {"followers_gained", Int64.Type}, {"caption_length", Int64.Type}, {"hashtags_count", Int64.Type}, {"performance_bucket_label", type text}}),
+				    #"Added Post Month" = Table.AddColumn(#"Changed Type", "post_month", each Date.StartOfMonth([post_date]), type date)
+				in
+				    #"Added Post Month"
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Instagram Performance Analytics — Interactive Dashboard</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="glow glow-a"></div>
+<div class="glow glow-b"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">IG</div>
+    <div>
+      <h1>Instagram Performance Analytics</h1>
+      <p>Engagement, reach &amp; follower growth across <span id="totalPosts">29,944</span> posts · Nov 2024 – Nov 2025</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="pill">FDS Phase 1</span>
+    <span class="pill pill-accent" id="filteredPill">29,944 posts selected</span>
+  </div>
+</header>
+
+<section class="filters" id="filters">
+  <div class="filter-group">
+    <label for="fromMonth">From</label>
+    <select id="fromMonth"></select>
+  </div>
+  <div class="filter-group">
+    <label for="toMonth">To</label>
+    <select id="toMonth"></select>
+  </div>
+  <div class="filter-group grow">
+    <label>Media type</label>
+    <div class="chips" id="mediaChips">
+      <button class="chip active" data-media="reel">Reels</button>
+      <button class="chip active" data-media="image">Images</button>
+      <button class="chip active" data-media="carousel">Carousels</button>
+    </div>
+  </div>
+  <div class="filter-group">
+    <label for="fCategory">Category</label>
+    <select id="fCategory"></select>
+  </div>
+  <div class="filter-group">
+    <label for="fTraffic">Traffic</label>
+    <select id="fTraffic"></select>
+  </div>
+  <div class="filter-group">
+    <label for="fAccount">Account</label>
+    <select id="fAccount"></select>
+  </div>
+  <div class="filter-group">
+    <label for="fBucket">Band</label>
+    <select id="fBucket"></select>
+  </div>
+  <div class="filter-group">
+    <label for="fCta">CTA</label>
+    <select id="fCta">
+      <option value="all">All posts</option>
+      <option value="1">With CTA</option>
+      <option value="0">Without CTA</option>
+    </select>
+  </div>
+  <button class="reset" id="resetBtn">Reset</button>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="overview" role="tab">Overview</button>
+  <button class="tab" data-tab="content" role="tab">Content</button>
+  <button class="tab" data-tab="timing" role="tab">Timing</button>
+  <button class="tab" data-tab="data" role="tab">Data</button>
+</nav>
+
+<main>
+  <section class="panel active" id="tab-overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="insight-strip" id="insightStrip"></div>
+    <div class="grid">
+      <article class="card span-8">
+        <div class="card-head"><h3>Engagement rate trend</h3><span class="hint">avg engagement rate by month</span></div>
+        <div class="chart" id="chartTrend"></div>
+      </article>
+      <article class="card span-4">
+        <div class="card-head"><h3>Performance mix</h3><span class="hint">share of posts by band</span></div>
+        <div class="chart" id="chartBucket"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Media type</h3><span class="hint">avg engagement rate</span></div>
+        <div class="chart" id="chartMedia"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Content category</h3><span class="hint">avg engagement rate</span></div>
+        <div class="chart" id="chartCategory"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Traffic source</h3><span class="hint">avg engagement rate</span></div>
+        <div class="chart" id="chartTraffic"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Day of week</h3><span class="hint">avg engagement rate</span></div>
+        <div class="chart" id="chartDow"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" id="tab-content">
+    <div class="split">
+      <article class="card cta-card">
+        <span class="mini-label">Posts with CTA</span>
+        <strong id="ctaOn">—</strong>
+        <span class="mini-note" id="ctaOnNote">—</span>
+      </article>
+      <article class="card cta-card">
+        <span class="mini-label">Posts without CTA</span>
+        <strong id="ctaOff">—</strong>
+        <span class="mini-note" id="ctaOffNote">—</span>
+      </article>
+      <article class="card cta-card">
+        <span class="mini-label">Best media type</span>
+        <strong id="bestMedia">—</strong>
+        <span class="mini-note">highest average engagement</span>
+      </article>
+      <article class="card cta-card">
+        <span class="mini-label">Best category</span>
+        <strong id="bestCategory">—</strong>
+        <span class="mini-note">highest average engagement</span>
+      </article>
+    </div>
+    <div class="grid">
+      <article class="card span-7">
+        <div class="card-head"><h3>Reach vs engagement by category</h3><span class="hint">bubble size = posts</span></div>
+        <div class="chart tall" id="chartScatter"></div>
+      </article>
+      <article class="card span-5">
+        <div class="card-head"><h3>Category performance</h3><span class="hint">sorted by avg engagement</span></div>
+        <div class="table-wrap compact" id="categoryTable"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Media × band</h3><span class="hint">avg engagement rate</span></div>
+        <div class="chart" id="chartMediaBand"></div>
+      </article>
+      <article class="card span-6">
+        <div class="card-head"><h3>Audience snapshot</h3><span class="hint">by account type</span></div>
+        <div class="grid mini" id="audienceCards"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" id="tab-timing">
+    <div class="grid">
+      <article class="card span-8">
+        <div class="card-head"><h3>Engagement by posting hour</h3><span class="hint">average across all selected posts</span></div>
+        <div class="chart" id="chartHour"></div>
+      </article>
+      <article class="card span-4">
+        <div class="card-head"><h3>Best times to post</h3><span class="hint">top hour / day combinations</span></div>
+        <ol class="rank-list" id="bestTimes"></ol>
+      </article>
+      <article class="card span-12">
+        <div class="card-head"><h3>Day × hour heatmap</h3><span class="hint">avg engagement rate</span></div>
+        <div class="heatmap" id="heatmap"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" id="tab-data">
+    <div class="grid">
+      <article class="card span-12">
+        <div class="card-head">
+          <h3>Top posts by engagement</h3>
+          <div class="table-tools">
+            <input type="search" id="postSearch" placeholder="Search category, media, band…" />
+            <button class="ghost" id="downloadBtn">Download filtered CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap tall-table" id="postsTable"></div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Built from <code>Instagram_Analytics_cleaned.csv</code> · 29,944 logically consistent records</span>
+  <span>FDS Phase 1 · Anamta Shafi (CT24011) &amp; Syeda Amna Ali (CT24014)</span>
+</footer>
+
+<div class="tooltip" id="tooltip"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

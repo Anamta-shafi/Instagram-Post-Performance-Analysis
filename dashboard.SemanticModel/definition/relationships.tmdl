@@ -1,0 +1,10 @@
+relationship a54d33de-a8ae-4b28-96df-6200114a9ad4
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Posts.post_date
+	toColumn: LocalDateTable_115d4535-d1c6-4ef1-ab05-389a437d6410.Date
+
+relationship 869cf6a5-9a4b-4882-a2bd-0651b8b9b602
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Posts.post_month
+	toColumn: LocalDateTable_c156c1cb-85a6-41ff-b1bc-c97ea3ae093e.Date
+

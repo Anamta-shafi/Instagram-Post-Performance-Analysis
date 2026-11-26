@@ -25,7 +25,9 @@ fdssss/
 ├── Instagram_Analytics_cleaned.csv     # Cleaned source data (29,944 rows)
 ├── Instagram_Analytics_raw.csv         # Raw source data
 ├── Instagram_post_perfomance_analysis.ipynb
-└── Final_Report.pdf
+├── Final_Report.pdf
+└── screenshots/
+    └── web-overview.png                # Overview tab screenshot used below
 ```
 
 ## Quick start: web dashboard
@@ -37,6 +39,8 @@ python -m http.server 8000
 ```
 
 Then visit `http://localhost:8000/web/`.
+
+![Web dashboard — Overview tab](screenshots/web-overview.png)
 
 ### What you can do
 
@@ -105,4 +109,4 @@ The report uses the custom theme `InstagramInsights-7f3a9c2e.json` (dark backgro
 - The web dashboard shows the top 150 posts in the table after filtering and search; the CSV export includes all filtered rows.
 - The Power BI model uses an absolute CSV path. Refresh will fail if the file is moved without updating the M query.
 - PBIR report/page/visual JSON was schema-validated during development. The report has not been opened in Power BI Desktop in this environment, so visual layout should be confirmed locally on first open.
-- The web dashboard was tested in headless Chrome: all tabs, filters, reset, search, and chart rendering completed without console errors.
+- The web dashboard was tested in headless Chrome: all tabs, filters, reset, search, and chart rendering completed without console errors. The Overview screenshot above was captured from that run.

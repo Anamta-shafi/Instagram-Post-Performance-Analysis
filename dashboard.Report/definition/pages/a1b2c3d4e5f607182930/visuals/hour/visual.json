@@ -70,6 +70,26 @@
         {
           "properties": {}
         }
+      ],
+      "dataPoint": [
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#34D399'"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Posts.Avg Engagement Rate"
+          }
+        }
       ]
     },
     "visualContainerObjects": {

@@ -20,6 +20,19 @@
                    "#60a5fa", "#a78bfa", "#fbbf24", "#2dd4bf"];
   const BUCKET_COLORS = { low: "#64748b", medium: "#60a5fa", high: "#f59e0b", viral: "#ff4d8d" };
   const MEDIA_COLORS = { reel: "#ff4d8d", image: "#22d3ee", carousel: "#8b5cf6" };
+  const CATEGORY_COLORS = {
+    Beauty: "#fbbf24", Comedy: "#2dd4bf", Fashion: "#ff4d8d", Fitness: "#f472b6",
+    Food: "#34d399", Lifestyle: "#f59e0b", Music: "#60a5fa", Photography: "#8b5cf6",
+    Technology: "#22d3ee", Travel: "#a78bfa"
+  };
+  const TRAFFIC_COLORS = {
+    "Hashtags": "#ff4d8d", "Home Feed": "#8b5cf6", "Reels Feed": "#22d3ee",
+    "External": "#f59e0b", "Profile": "#34d399", "Explore": "#60a5fa"
+  };
+  const DOW_COLORS = {
+    Monday: "#ff4d8d", Tuesday: "#8b5cf6", Wednesday: "#22d3ee", Thursday: "#f59e0b",
+    Friday: "#34d399", Saturday: "#f472b6", Sunday: "#60a5fa"
+  };
 
   const state = {
     from: 0, to: MONTHS.length - 1,
@@ -462,6 +475,432 @@
     });
   }
 
+  function treemapLayout(items, x, y, w, h, out) {
+    if (!items.length || w <= 0 || h <= 0) return;
+    if (items.length === 1) { out.push({ item: items[0], x, y, w, h }); return; }
+    const total = items.reduce((s, it) => s + it.value, 0) || 1;
+    let acc = 0, split = 1;
+    for (let i = 0; i < items.length - 1; i++) {
+      acc += items[i].value;
+      if (acc >= total / 2) { split = i + 1; break; }
+    }
+    split = Math.max(1, Math.min(items.length - 1, split));
+    const a = items.slice(0, split), b = items.slice(split);
+    const frac = a.reduce((s, it) => s + it.value, 0) / total;
+    if (w >= h) {
+      const aw = w * frac;
+      treemapLayout(a, x, y, aw, h, out);
+      treemapLayout(b, x + aw, y, w - aw, h, out);
+    } else {
+      const ah = h * frac;
+      treemapLayout(a, x, y, w, ah, out);
+      treemapLayout(b, x, y + ah, w, h - ah, out);
+    }
+  }
+
+  function treemapChart(el, items, opt = {}) {
+    const valid = items.filter(i => i.value > 0);
+    if (!valid.length) return empty(el);
+    const W = 780, H = opt.height || 300;
+    const svg = mkSvg(W, H, el);
+    const total = valid.reduce((s, i) => s + i.value, 0);
+    const sorted = valid.slice().sort((a, b) => b.value - a.value);
+    const rects = [];
+    treemapLayout(sorted, 0, 0, W, H, rects);
+    rects.forEach((r, idx) => {
+      const pad = 2.5;
+      const x = r.x + pad, y = r.y + pad, w = Math.max(0, r.w - pad * 2), h = Math.max(0, r.h - pad * 2);
+      if (w < 3 || h < 3) return;
+      const it = r.item;
+      const color = it.color || PALETTE[idx % PALETTE.length];
+      const pct = total ? it.value / total : 0;
+      const rect = svgEl("rect", { x, y, width: w, height: h, rx: 7, fill: color,
+                                   "fill-opacity": .86, stroke: "#0b1222", "stroke-width": 1.5, class: "bar" });
+      rect.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">${esc(opt.label || "Reach")}:</span> ${fmtCompact(it.value)}<br><span class="muted">Share:</span> ${(pct * 100).toFixed(1)}%`);
+      svg.appendChild(rect);
+      if (w > 64 && h > 40) {
+        const t1 = svgEl("text", { x: x + 9, y: y + 19, class: "axis-label" });
+        t1.textContent = it.label; t1.style.fill = "#fff"; t1.style.fontSize = "11.5px"; t1.style.fontWeight = "700";
+        svg.appendChild(t1);
+        const t2 = svgEl("text", { x: x + 9, y: y + 34, class: "axis-label" });
+        t2.textContent = fmtCompact(it.value) + " · " + (pct * 100).toFixed(1) + "%";
+        t2.style.fill = "rgba(255,255,255,.78)"; t2.style.fontSize = "10px";
+        svg.appendChild(t2);
+      }
+    });
+  }
+
+  function comboChart(el, cats, bars, line, opt = {}) {
+    const barVals = bars.filter(v => v != null && isFinite(v));
+    const lineVals = line.filter(v => v != null && isFinite(v));
+    if (!cats.length || (!barVals.length && !lineVals.length)) return empty(el);
+    const W = 780, H = opt.height || 300, P = { l: 52, r: 56, t: 30, b: 44 };
+    const svg = mkSvg(W, H, el);
+    const barMax = Math.max(...barVals, 1) * 1.15;
+    const lmin = lineVals.length ? Math.min(...lineVals) : 0;
+    const lmax = lineVals.length ? Math.max(...lineVals) : 1;
+    const lpad = (lmax - lmin) * 0.3 || Math.max(lmax * 0.1, 0.001);
+    const ly0 = Math.max(0, lmin - lpad), ly1 = lmax + lpad;
+    const plotW = W - P.l - P.r;
+    const BX = i => P.l + (i + .5) * plotW / cats.length;
+    const LX = i => P.l + (cats.length === 1 ? plotW / 2 : i * plotW / (cats.length - 1));
+    const YB = v => H - P.b - (v / barMax) * (H - P.t - P.b);
+    const YL = v => H - P.b - ((v - ly0) / (ly1 - ly0 || 1)) * (H - P.t - P.b);
+    const gid = "c" + Math.random().toString(36).slice(2, 8);
+    const defs = svgEl("defs");
+    const grad = svgEl("linearGradient", { id: gid, gradientUnits: "userSpaceOnUse",
+                                          x1: 0, y1: P.t, x2: 0, y2: H - P.b });
+    grad.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#8b5cf6" }));
+    grad.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#22d3ee" }));
+    defs.appendChild(grad); svg.appendChild(defs);
+    for (let t = 0; t <= 4; t++) {
+      const y = H - P.b - t / 4 * (H - P.t - P.b);
+      svg.appendChild(svgEl("line", { x1: P.l, x2: W - P.r, y1: y, y2: y, class: "grid-line" }));
+      const l = svgEl("text", { x: P.l - 8, y: y + 3, "text-anchor": "end", class: "axis-label" });
+      l.textContent = fmtCompact(barMax * t / 4); svg.appendChild(l);
+      const r = svgEl("text", { x: W - P.r + 8, y: y + 3, class: "axis-label" });
+      r.textContent = fmtPct1(ly0 + (ly1 - ly0) * t / 4); r.style.fill = "#fbbf24"; svg.appendChild(r);
+    }
+    const bw = Math.min(32, plotW / cats.length * 0.58);
+    cats.forEach((c, i) => {
+      const v = bars[i];
+      if (v == null || !isFinite(v)) return;
+      const h = Math.max(1, H - P.b - YB(v));
+      const rect = svgEl("rect", { x: BX(i) - bw / 2, y: YB(v), width: bw, height: h, rx: 5,
+                                   fill: `url(#${gid})`, class: "bar" });
+      rect.setAttribute("data-tip", `<b>${esc(c)}</b><br><span class="muted">Posts:</span> ${fmtInt(v)}${line[i] != null ? `<br><span class="muted">Avg engagement:</span> ${fmtPct(line[i])}` : ""}`);
+      svg.appendChild(rect);
+    });
+    const pts = [];
+    line.forEach((v, i) => { if (v != null && isFinite(v)) pts.push({ x: LX(i), y: YL(v), i, v }); });
+    if (pts.length > 1) {
+      svg.appendChild(svgEl("path", {
+        d: pts.map((p, i) => (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" "),
+        fill: "none", stroke: "#fbbf24", "stroke-width": 2.6, "stroke-linejoin": "round", "stroke-linecap": "round"
+      }));
+    }
+    pts.forEach(p => {
+      const c = svgEl("circle", { cx: p.x, cy: p.y, r: 4, fill: "#fbbf24", stroke: "#0b1222", "stroke-width": 1.6 });
+      c.setAttribute("data-tip", `<b>${esc(cats[p.i])}</b><br><span class="muted">Avg engagement:</span> ${fmtPct(p.v)}<br><span class="muted">Posts:</span> ${fmtInt(bars[p.i] || 0)}`);
+      svg.appendChild(c);
+    });
+    const step = Math.ceil(cats.length / 9);
+    cats.forEach((c, i) => {
+      if (i % step !== 0 && i !== cats.length - 1) return;
+      const t = svgEl("text", { x: BX(i), y: H - 14, "text-anchor": "middle", class: "axis-label" });
+      t.textContent = c; svg.appendChild(t);
+    });
+    svg.appendChild(svgEl("rect", { x: P.l, y: 9, width: 10, height: 10, rx: 3, fill: "#8b5cf6" }));
+    const lt = svgEl("text", { x: P.l + 16, y: 18, class: "axis-label" });
+    lt.textContent = opt.barLabel || "Posts"; lt.style.fill = "#b9c7df"; lt.style.fontSize = "10.5px";
+    svg.appendChild(lt);
+    svg.appendChild(svgEl("rect", { x: P.l + 78, y: 13, width: 14, height: 3, rx: 2, fill: "#fbbf24" }));
+    const lt2 = svgEl("text", { x: P.l + 98, y: 18, class: "axis-label" });
+    lt2.textContent = opt.lineLabel || "Avg engagement"; lt2.style.fill = "#b9c7df"; lt2.style.fontSize = "10.5px";
+    svg.appendChild(lt2);
+  }
+
+  function funnelChart(el, items, opt = {}) {
+    const valid = items.filter(i => i.value > 0).sort((a, b) => b.value - a.value);
+    if (!valid.length) return empty(el);
+    const W = 780, H = opt.height || 300, P = { l: 20, r: 20, t: 22, b: 16 };
+    const svg = mkSvg(W, H, el);
+    const max = valid[0].value || 1;
+    const cx = W / 2;
+    const segH = (H - P.t - P.b) / valid.length;
+    const maxW = W * 0.66;
+    valid.forEach((it, i) => {
+      const wTop = Math.max(40, (it.value / max) * maxW);
+      const next = valid[i + 1];
+      const wBot = next ? Math.max(40, (next.value / max) * maxW) : wTop * 0.5;
+      const y0 = P.t + i * segH;
+      const y1 = y0 + segH - 3;
+      const poly = svgEl("polygon", {
+        points: [cx - wTop / 2, y0, cx + wTop / 2, y0, cx + wBot / 2, y1, cx - wBot / 2, y1].join(" "),
+        fill: it.color || PALETTE[i % PALETTE.length], "fill-opacity": .9,
+        stroke: "#0b1222", "stroke-width": 1.5, class: "bar"
+      });
+      poly.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">Total:</span> ${fmtCompact(it.value)}<br><span class="muted">vs previous step:</span> ${i === 0 ? "—" : (it.value / valid[i - 1].value * 100).toFixed(1) + "%"}`);
+      svg.appendChild(poly);
+      const t1 = svgEl("text", { x: cx, y: y0 + segH / 2 - 3, "text-anchor": "middle", class: "axis-label" });
+      t1.textContent = it.label; t1.style.fill = "#fff"; t1.style.fontSize = "12px"; t1.style.fontWeight = "700";
+      svg.appendChild(t1);
+      const t2 = svgEl("text", { x: cx, y: y0 + segH / 2 + 13, "text-anchor": "middle", class: "axis-label" });
+      t2.textContent = fmtCompact(it.value); t2.style.fill = "rgba(255,255,255,.82)"; t2.style.fontSize = "10.5px";
+      svg.appendChild(t2);
+    });
+  }
+
+  function stackedBars(el, groups, series, opt = {}) {
+    if (!groups.length) return empty(el);
+    const W = 780, rowH = 46, P = { l: 110, r: 22, t: 42, b: 14 };
+    const H = groups.length * rowH + P.t + P.b;
+    const svg = mkSvg(W, H, el);
+    const x0 = P.l, x1 = W - P.r, plotW = x1 - x0;
+    series.forEach((s, i) => {
+      const lx = P.l + i * 132;
+      svg.appendChild(svgEl("rect", { x: lx, y: 10, width: 10, height: 10, rx: 3, fill: s.color }));
+      const t = svgEl("text", { x: lx + 16, y: 19, class: "axis-label" });
+      t.textContent = s.label; t.style.fill = "#b9c7df"; t.style.fontSize = "10.5px";
+      svg.appendChild(t);
+    });
+    groups.forEach((g, gi) => {
+      const y = P.t + gi * rowH + 10;
+      const total = series.reduce((s, se) => s + (se.get(g) || 0), 0) || 1;
+      const lbl = svgEl("text", { x: x0 - 12, y: y + 14, "text-anchor": "end", class: "axis-label" });
+      lbl.textContent = g; lbl.style.fill = "#c8d5ea"; lbl.style.fontSize = "12px";
+      svg.appendChild(lbl);
+      let acc = 0;
+      series.forEach(se => {
+        const v = se.get(g) || 0;
+        const w = plotW * v / total;
+        if (w < 0.5) return;
+        const rect = svgEl("rect", { x: x0 + acc, y, width: Math.max(0, w), height: 22, rx: 4,
+                                     fill: se.color, class: "bar" });
+        rect.setAttribute("data-tip", `<b>${esc(g)} · ${esc(se.label)}</b><br><span class="muted">Count:</span> ${fmtCompact(v)}<br><span class="muted">Share:</span> ${(v / total * 100).toFixed(1)}%`);
+        svg.appendChild(rect);
+        if (w > 46) {
+          const t = svgEl("text", { x: x0 + acc + w / 2, y: y + 15, "text-anchor": "middle", class: "axis-label" });
+          t.textContent = Math.round(v / total * 100) + "%"; t.style.fill = "#0b1222"; t.style.fontSize = "9.5px"; t.style.fontWeight = "700";
+          svg.appendChild(t);
+        }
+        acc += w;
+      });
+    });
+  }
+
+  const polarPoint = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const arcPath = (cx, cy, r, a0, a1) => {
+    const [x0, y0] = polarPoint(cx, cy, r, a0);
+    const [x1, y1] = polarPoint(cx, cy, r, a1);
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  };
+
+  function radialGauges(el, items, opt = {}) {
+    if (!items.length) return empty(el);
+    const W = 780, H = 300;
+    const svg = mkSvg(W, H, el);
+    const cx = 220, cy = 150, maxR = 120, minR = 54;
+    const n = items.length;
+    const step = n > 1 ? (maxR - minR) / (n - 1) : 0;
+    const max = Math.max(...items.map(i => i.value), 1e-9);
+    const a0 = -Math.PI / 2;
+    const sw = Math.min(18, Math.max(11, step * 0.58));
+    const best = items.reduce((b, it) => (it.value > b.value ? it : b), items[0]);
+
+    items.forEach((it, i) => {
+      const r = maxR - i * step;
+      const color = it.color || PALETTE[i % PALETTE.length];
+      svg.appendChild(svgEl("circle", { cx, cy, r, fill: "none",
+        stroke: "rgba(126,150,190,.14)", "stroke-width": sw }));
+      const frac = Math.max(0.03, Math.min(0.999, it.value / max));
+      const path = svgEl("path", { d: arcPath(cx, cy, r, a0, a0 + frac * Math.PI * 2),
+        fill: "none", stroke: color, "stroke-width": sw, "stroke-linecap": "round",
+        class: "bar" + (opt.onClick ? " clickable" : "") });
+      path.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">Avg engagement:</span> ${fmtPct(it.value)}<br><span class="muted">Posts:</span> ${fmtInt(it.n || 0)}`);
+      if (opt.onClick) path.addEventListener("click", () => opt.onClick(it));
+      svg.appendChild(path);
+    });
+
+    const c1 = svgEl("text", { x: cx, y: cy - 10, "text-anchor": "middle", class: "axis-label" });
+    c1.textContent = opt.centerLabel || "BEST";
+    c1.style.fill = "#8ea1c2"; c1.style.fontSize = "9px"; c1.style.letterSpacing = "1.5px";
+    svg.appendChild(c1);
+    const c2 = svgEl("text", { x: cx, y: cy + 10, "text-anchor": "middle" });
+    c2.textContent = best.label; c2.style.fill = "#fff"; c2.style.fontSize = "16px"; c2.style.fontWeight = "750";
+    svg.appendChild(c2);
+    const c3 = svgEl("text", { x: cx, y: cy + 28, "text-anchor": "middle", class: "axis-label" });
+    c3.textContent = fmtPct(best.value); c3.style.fill = best.color || "#ff4d8d"; c3.style.fontSize = "12px";
+    svg.appendChild(c3);
+
+    items.forEach((it, i) => {
+      const x = 438, y = 76 + i * 50;
+      const color = it.color || PALETTE[i % PALETTE.length];
+      svg.appendChild(svgEl("circle", { cx: x + 6, cy: y - 4, r: 6, fill: color }));
+      const l1 = svgEl("text", { x: x + 22, y: y + 1, class: "axis-label" });
+      l1.textContent = it.label; l1.style.fill = "#dbe4f5"; l1.style.fontSize = "13px"; l1.style.fontWeight = "600";
+      svg.appendChild(l1);
+      const l2 = svgEl("text", { x: x + 22, y: y + 18, class: "axis-label" });
+      l2.textContent = `${fmtInt(it.n || 0)} posts`; l2.style.fill = "#8ea1c2"; l2.style.fontSize = "10px";
+      svg.appendChild(l2);
+      const v = svgEl("text", { x: W - 14, y: y + 3, "text-anchor": "end" });
+      v.textContent = fmtPct(it.value); v.style.fill = color; v.style.fontSize = "15px"; v.style.fontWeight = "750";
+      svg.appendChild(v);
+      if (opt.onClick) {
+        const hit = svgEl("rect", { x: 430, y: y - 22, width: W - 444, height: 42, fill: "transparent", class: "clickable" });
+        hit.addEventListener("click", () => opt.onClick(it));
+        svg.appendChild(hit);
+      }
+    });
+  }
+
+  function rankedBars(el, items, opt = {}) {
+    if (!items.length) return empty(el);
+    const sorted = items.slice().sort((a, b) => b.value - a.value);
+    const W = 780, rowH = 34, P = { l: 14, r: 86, t: 12, b: 12 };
+    const H = sorted.length * rowH + P.t + P.b;
+    const svg = mkSvg(W, H, el);
+    const max = Math.max(...sorted.map(i => i.value), 1e-9);
+    const x0 = 190, x1 = W - P.r;
+    const rankColors = ["#fbbf24", "#cbd5e1", "#f59e0b"];
+    sorted.forEach((it, i) => {
+      const y = P.t + i * rowH + 7;
+      const color = it.color || PALETTE[i % PALETTE.length];
+      const rc = rankColors[i] || "rgba(126,150,190,.45)";
+      svg.appendChild(svgEl("circle", { cx: P.l + 12, cy: y + 10, r: 11, fill: rc, "fill-opacity": i < 3 ? .95 : .5 }));
+      const rk = svgEl("text", { x: P.l + 12, y: y + 14, "text-anchor": "middle" });
+      rk.textContent = i + 1; rk.style.fill = i < 3 ? "#0b1222" : "#dbe4f5"; rk.style.fontSize = "10.5px"; rk.style.fontWeight = "800";
+      svg.appendChild(rk);
+      const lbl = svgEl("text", { x: P.l + 32, y: y + 14, class: "axis-label" });
+      lbl.textContent = it.label; lbl.style.fill = "#dbe4f5"; lbl.style.fontSize = "12.5px"; lbl.style.fontWeight = "600";
+      svg.appendChild(lbl);
+      svg.appendChild(svgEl("rect", { x: x0, y, width: x1 - x0, height: 20, rx: 10, fill: "rgba(126,150,190,.08)" }));
+      const gid = "rb" + Math.random().toString(36).slice(2, 8);
+      const defs = svgEl("defs");
+      const grad = svgEl("linearGradient", { id: gid, x1: "0%", y1: "0%", x2: "100%", y2: "0%" });
+      grad.appendChild(svgEl("stop", { offset: "0%", "stop-color": color, "stop-opacity": .98 }));
+      grad.appendChild(svgEl("stop", { offset: "100%", "stop-color": color, "stop-opacity": .42 }));
+      defs.appendChild(grad); svg.appendChild(defs);
+      const bw = Math.max(6, (it.value / max) * (x1 - x0));
+      const bar = svgEl("rect", { x: x0, y, width: bw, height: 20, rx: 10,
+        fill: `url(#${gid})`, class: "bar" + (opt.onClick ? " clickable" : "") });
+      bar.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">Avg engagement:</span> ${fmtPct(it.value)}<br><span class="muted">Posts:</span> ${fmtInt(it.n || 0)}`);
+      if (opt.onClick) bar.addEventListener("click", () => opt.onClick(it));
+      svg.appendChild(bar);
+      const v = svgEl("text", { x: W - 12, y: y + 14, "text-anchor": "end" });
+      v.textContent = fmtPct(it.value); v.style.fill = "#fff"; v.style.fontSize = "11.5px"; v.style.fontWeight = "700";
+      svg.appendChild(v);
+    });
+  }
+
+  function roseChart(el, items, opt = {}) {
+    if (!items.length) return empty(el);
+    const W = 780, H = 300;
+    const svg = mkSvg(W, H, el);
+    const cx = 215, cy = 150, maxR = 112;
+    const max = Math.max(...items.map(i => i.value), 1e-9);
+    const n = items.length;
+    const seg = Math.PI * 2 / n;
+    const gap = Math.min(0.05, seg * 0.14);
+    for (let g = 1; g <= 3; g++) {
+      svg.appendChild(svgEl("circle", { cx, cy, r: maxR * g / 3, fill: "none",
+        stroke: "rgba(126,150,190,.12)", "stroke-width": 1 }));
+    }
+    items.forEach((it, i) => {
+      const color = it.color || PALETTE[i % PALETTE.length];
+      const r = Math.max(26, (it.value / max) * maxR);
+      const a0 = -Math.PI / 2 + i * seg + gap / 2;
+      const a1 = -Math.PI / 2 + (i + 1) * seg - gap / 2;
+      const [x0, y0] = polarPoint(cx, cy, r, a0);
+      const [x1, y1] = polarPoint(cx, cy, r, a1);
+      const large = a1 - a0 > Math.PI ? 1 : 0;
+      const path = svgEl("path", {
+        d: `M ${cx} ${cy} L ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`,
+        fill: color, "fill-opacity": .84, stroke: "#0b1222", "stroke-width": 1.6,
+        class: "bar" + (opt.onClick ? " clickable" : "")
+      });
+      path.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">Avg engagement:</span> ${fmtPct(it.value)}<br><span class="muted">Posts:</span> ${fmtInt(it.n || 0)}`);
+      if (opt.onClick) path.addEventListener("click", () => opt.onClick(it));
+      svg.appendChild(path);
+    });
+    svg.appendChild(svgEl("circle", { cx, cy, r: 34, fill: "#0b1222", stroke: "rgba(126,150,190,.28)", "stroke-width": 1.5 }));
+    const best = items.reduce((b, it) => (it.value > b.value ? it : b), items[0]);
+    const c1 = svgEl("text", { x: cx, y: cy - 8, "text-anchor": "middle", class: "axis-label" });
+    c1.textContent = "BEST SOURCE"; c1.style.fill = "#8ea1c2"; c1.style.fontSize = "7.5px"; c1.style.letterSpacing = "1px";
+    svg.appendChild(c1);
+    const c2 = svgEl("text", { x: cx, y: cy + 7, "text-anchor": "middle" });
+    c2.textContent = best.label; c2.style.fill = "#fff"; c2.style.fontSize = "11px"; c2.style.fontWeight = "750";
+    svg.appendChild(c2);
+    const c3 = svgEl("text", { x: cx, y: cy + 22, "text-anchor": "middle" });
+    c3.textContent = fmtPct(best.value); c3.style.fill = best.color || "#ff4d8d"; c3.style.fontSize = "10px"; c3.style.fontWeight = "700";
+    svg.appendChild(c3);
+
+    items.forEach((it, i) => {
+      const x = 410, y = 52 + i * 38;
+      const color = it.color || PALETTE[i % PALETTE.length];
+      svg.appendChild(svgEl("rect", { x, y: y - 7, width: 8, height: 8, rx: 2, fill: color }));
+      const l = svgEl("text", { x: x + 16, y: y, class: "axis-label" });
+      l.textContent = it.label; l.style.fill = "#dbe4f5"; l.style.fontSize = "12px";
+      svg.appendChild(l);
+      const v = svgEl("text", { x: W - 12, y: y, "text-anchor": "end" });
+      v.textContent = fmtPct(it.value); v.style.fill = color; v.style.fontSize = "12px"; v.style.fontWeight = "700";
+      svg.appendChild(v);
+      if (opt.onClick) {
+        const hit = svgEl("rect", { x: x - 4, y: y - 16, width: W - x - 8, height: 30, fill: "transparent", class: "clickable" });
+        hit.addEventListener("click", () => opt.onClick(it));
+        svg.appendChild(hit);
+      }
+    });
+  }
+
+  function columnGlow(el, items, opt = {}) {
+    if (!items.length) return empty(el);
+    const W = 780, H = 300, P = { l: 46, r: 18, t: 42, b: 48 };
+    const svg = mkSvg(W, H, el);
+    const max = Math.max(...items.map(i => i.value), 1e-9) * 1.18;
+    const plotW = W - P.l - P.r, plotH = H - P.t - P.b;
+    const Y = v => H - P.b - (v / max) * plotH;
+    const fid = "gl" + Math.random().toString(36).slice(2, 8);
+    const defs = svgEl("defs");
+    const filter = svgEl("filter", { id: fid, x: "-60%", y: "-60%", width: "220%", height: "220%" });
+    filter.appendChild(svgEl("feGaussianBlur", { stdDeviation: "6", result: "blur" }));
+    const merge = svgEl("feMerge");
+    merge.appendChild(svgEl("feMergeNode", { in: "blur" }));
+    merge.appendChild(svgEl("feMergeNode", { in: "SourceGraphic" }));
+    filter.appendChild(merge);
+    defs.appendChild(filter); svg.appendChild(defs);
+    for (let t = 0; t <= 4; t++) {
+      const y = H - P.b - t / 4 * plotH;
+      svg.appendChild(svgEl("line", { x1: P.l, x2: W - P.r, y1: y, y2: y, class: "grid-line" }));
+      const tx = svgEl("text", { x: P.l - 8, y: y + 3, "text-anchor": "end", class: "axis-label" });
+      tx.textContent = fmtPct1(max * t / 4); svg.appendChild(tx);
+    }
+    if (opt.avg != null) {
+      const y = Y(opt.avg);
+      svg.appendChild(svgEl("line", { x1: P.l, x2: W - P.r, y1: y, y2: y, stroke: "#e8eefb",
+        "stroke-width": 1.2, "stroke-dasharray": "5 5", opacity: .45 }));
+      const lx = W - P.r;
+      svg.appendChild(svgEl("line", { x1: lx - 66, x2: lx - 52, y1: P.t + 6, y2: P.t + 6,
+        stroke: "#e8eefb", "stroke-width": 1.4, "stroke-dasharray": "4 3", opacity: .7 }));
+      const t = svgEl("text", { x: lx, y: P.t + 10, "text-anchor": "end", class: "axis-label" });
+      t.textContent = "avg " + fmtPct1(opt.avg); t.style.fill = "#e8eefb"; t.style.fontSize = "10.5px";
+      svg.appendChild(t);
+    }
+    const bestIdx = items.reduce((bi, it, i) => (it.value > items[bi].value ? i : bi), 0);
+    const bw = Math.min(62, plotW / items.length * 0.56);
+    items.forEach((it, i) => {
+      const cx = P.l + (i + 0.5) * plotW / items.length;
+      const h = Math.max(3, (it.value / max) * plotH);
+      const y = H - P.b - h;
+      const color = it.color || PALETTE[i % PALETTE.length];
+      const gid = "cg" + Math.random().toString(36).slice(2, 8);
+      const grad = svgEl("linearGradient", { id: gid, gradientUnits: "userSpaceOnUse", x1: 0, y1: y, x2: 0, y2: H - P.b });
+      grad.appendChild(svgEl("stop", { offset: "0%", "stop-color": color, "stop-opacity": .98 }));
+      grad.appendChild(svgEl("stop", { offset: "100%", "stop-color": color, "stop-opacity": .22 }));
+      defs.appendChild(grad);
+      const bar = svgEl("rect", { x: cx - bw / 2, y, width: bw, height: h, rx: 10,
+        fill: `url(#${gid})`, class: "bar" });
+      if (i === bestIdx) bar.setAttribute("filter", `url(#${fid})`);
+      bar.setAttribute("data-tip", `<b>${esc(it.label)}</b><br><span class="muted">Avg engagement:</span> ${fmtPct(it.value)}<br><span class="muted">Posts:</span> ${fmtInt(it.n || 0)}`);
+      svg.appendChild(bar);
+      const v = svgEl("text", { x: cx, y: y - 8, "text-anchor": "middle" });
+      v.textContent = fmtPct(it.value); v.style.fill = "#e8eefb"; v.style.fontSize = "9.5px"; v.style.fontWeight = "700";
+      v.style.paintOrder = "stroke"; v.style.stroke = "#0b1222"; v.style.strokeWidth = "3px"; v.style.strokeLinejoin = "round";
+      svg.appendChild(v);
+      const lbl = svgEl("text", { x: cx, y: H - 18, "text-anchor": "middle", class: "axis-label" });
+      lbl.textContent = it.label; lbl.style.fill = "#c8d5ea"; lbl.style.fontSize = "11.5px";
+      svg.appendChild(lbl);
+      if (i === bestIdx) {
+        const pillW = 40, pillH = 16, py = Math.max(6, y - 30);
+        svg.appendChild(svgEl("rect", { x: cx - pillW / 2, y: py, width: pillW, height: pillH, rx: 8, fill: color }));
+        const pt = svgEl("text", { x: cx, y: py + 11.5, "text-anchor": "middle" });
+        pt.textContent = "BEST"; pt.style.fill = "#0b1222"; pt.style.fontSize = "8.5px"; pt.style.fontWeight = "800";
+        svg.appendChild(pt);
+      }
+    });
+  }
+
   // ---------- rendering ----------
   function renderKpis(rows, a) {
     const items = [
@@ -525,27 +964,45 @@
       onClick: it => { state.bucket = state.bucket === it.label ? "All" : it.label; $("fBucket").value = state.bucket; renderAll(); }
     });
 
-    dotPlot($("chartMedia"), ins.mediaAgg.slice().sort((x, y) => y.avgEr - x.avgEr).map(m => ({
-      label: m.label, value: m.avgEr, n: m.n })),
-      { horizontal: false, avg: a.avgEr, colorFn: (i, it) => MEDIA_COLORS[it.label] || PALETTE[i],
+    radialGauges($("chartMedia"), ins.mediaAgg.slice().sort((x, y) => y.avgEr - x.avgEr).map(m => ({
+      label: m.label, value: m.avgEr, n: m.n, color: MEDIA_COLORS[m.label] || "#8b5cf6" })),
+      { centerLabel: "BEST MEDIA",
         onClick: it => { state.media = new Set([it.label]); syncMediaChips(); renderAll(); } });
 
-    dotPlot($("chartCategory"), ins.catAgg.slice().sort((x, y) => y.avgEr - x.avgEr).map(c => ({
-      label: c.label, value: c.avgEr, n: c.n })),
-      { avg: a.avgEr, onClick: it => { state.cat = it.label; $("fCategory").value = it.label; renderAll(); } });
+    rankedBars($("chartCategory"), ins.catAgg.map(c => ({
+      label: c.label, value: c.avgEr, n: c.n, color: CATEGORY_COLORS[c.label] || "#8b5cf6" })),
+      { onClick: it => { state.cat = it.label; $("fCategory").value = it.label; renderAll(); } });
 
     const trafficAgg = [...groupBy(rows, d => d.traffic)].map(([k, v]) => ({ label: k, ...agg(v) }))
       .sort((x, y) => y.avgEr - x.avgEr);
-    dotPlot($("chartTraffic"), trafficAgg.map(t => ({ label: t.label, value: t.avgEr, n: t.n })),
-      { horizontal: false, avg: a.avgEr, onClick: it => { state.traffic = it.label; $("fTraffic").value = it.label; renderAll(); } });
+    roseChart($("chartTraffic"), trafficAgg.map(t => ({
+      label: t.label, value: t.avgEr, n: t.n, color: TRAFFIC_COLORS[t.label] || "#8b5cf6" })),
+      { onClick: it => { state.traffic = it.label; $("fTraffic").value = it.label; renderAll(); } });
 
     const dowAgg = DOW.map(day => ({ label: day.slice(0, 3), full: day, value: rows.filter(d => d.dow === day) }))
-      .map(x => ({ label: x.label, value: x.value.length ? agg(x.value).avgEr : 0, n: x.value.length }));
-    dotPlot($("chartDow"), dowAgg, { horizontal: false, avg: a.avgEr });
+      .map(x => ({ label: x.label, value: x.value.length ? agg(x.value).avgEr : 0,
+                   n: x.value.length, color: DOW_COLORS[x.full] }));
+    columnGlow($("chartDow"), dowAgg, { avg: a.avgEr });
+
+    const comboLabels = [], comboBars = [], comboLine = [];
+    for (let i = state.from; i <= state.to; i++) {
+      const mrows = rows.filter(d => d.m === i);
+      comboLabels.push(monthShort(i));
+      comboBars.push(mrows.length);
+      comboLine.push(mrows.length ? agg(mrows).avgEr : null);
+    }
+    comboChart($("chartCombo"), comboLabels, comboBars, comboLine,
+      { barLabel: "Posts", lineLabel: "Avg engagement" });
+
+    const reachByCat = [...groupBy(rows, d => d.cat)].map(([k, v]) => ({
+      label: k, value: agg(v).reach, color: CATEGORY_COLORS[k] || "#8b5cf6"
+    }));
+    treemapChart($("chartTreemap"), reachByCat, { label: "Total reach" });
   }
 
   function renderContent(rows) {
-    const ins = renderInsights(rows, agg(rows));
+    const a = agg(rows);
+    const ins = renderInsights(rows, a);
     $("ctaOn").textContent = ins.ctaOn.n ? fmtPct(ins.ctaOn.avgEr) : "—";
     $("ctaOff").textContent = ins.ctaOff.n ? fmtPct(ins.ctaOff.avgEr) : "—";
     $("ctaOnNote").textContent = `${fmtInt(ins.ctaOn.n)} posts · ${fmtCompact(ins.ctaOn.avgReach)} avg reach`;
@@ -602,6 +1059,28 @@
         <div class="account-row"><span>Avg saves / post</span><b>${fmtCompact(s.n ? s.saves / s.n : 0)}</b></div>
         <div class="account-row"><span>Interactions</span><b>${fmtCompact(s.interactions)}</b></div>
       </div>`).join("");
+
+    funnelChart($("chartFunnel"), [
+      { label: "Impressions", value: a.impressions, color: "#8b5cf6" },
+      { label: "Reach", value: a.reach, color: "#22d3ee" },
+      { label: "Interactions", value: a.interactions, color: "#f59e0b" },
+      { label: "Saves", value: a.saves, color: "#34d399" }
+    ]);
+
+    const mediaMix = new Map();
+    for (const d of rows) {
+      const cur = mediaMix.get(d.media) || { likes: 0, comments: 0, shares: 0, saves: 0 };
+      cur.likes += d.likes; cur.comments += d.comments;
+      cur.shares += d.shares; cur.saves += d.saves;
+      mediaMix.set(d.media, cur);
+    }
+    const mixSeries = [
+      { label: "Likes", color: "#ff4d8d", get: g => (mediaMix.get(g) || {}).likes || 0 },
+      { label: "Comments", color: "#22d3ee", get: g => (mediaMix.get(g) || {}).comments || 0 },
+      { label: "Shares", color: "#f59e0b", get: g => (mediaMix.get(g) || {}).shares || 0 },
+      { label: "Saves", color: "#34d399", get: g => (mediaMix.get(g) || {}).saves || 0 }
+    ];
+    stackedBars($("chartMix"), MEDIA, mixSeries);
   }
 
   function renderTiming(rows) {
